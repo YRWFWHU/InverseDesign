@@ -9,11 +9,11 @@ def generate_target_images():
     图像分辨率为3000×3000，保存为灰度图。
     """
     # 创建保存目录
-    save_dir = 'multifocal'
+    save_dir = 'multifocal_1000by1000_2500to4500_step100'
     os.makedirs(save_dir, exist_ok=True)
     
     # 图像尺寸
-    image_size = 3000
+    image_size = 1000
     
     # 创建基础图像（全黑）
     base_image = np.zeros((image_size, image_size), dtype=np.uint8)
@@ -30,7 +30,7 @@ def generate_target_images():
     base_image[mask] = 255  # 设置圆内像素为白色（值为255）
     
     # 生成60张图像，从3000um到3600um，步长为12um
-    distances = np.arange(3000, 3612, 12)
+    distances = np.arange(5000, 5500, 100)
     
     print("正在生成目标图像...")
     for distance in tqdm(distances):

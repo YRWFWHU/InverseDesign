@@ -7,7 +7,6 @@ import PIL.Image as Image
 from torchvision import transforms
 from tqdm import tqdm
 from utils.factories import propagation_function_factory, phase_profile_mask_factory
-from utils.utils import format_distance
 import json
 
 def load_target(args: argparse.Namespace) -> dict[float, torch.Tensor]:
@@ -37,7 +36,7 @@ def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Inverse design")
 
     # task parameters
-    parser.add_argument('--target_dir', type=str, default='multifocal', help='target image')
+    parser.add_argument('--target_dir', type=str, default='multifocal_1000by1000_2500to4500_step100', help='target image')
     parser.add_argument('--propagation_funtion', type=str, default='default', help='propagation function')
     parser.add_argument('--phase_profile_mask', type=str, default='circle', help='phase profile mask')
 
@@ -47,8 +46,8 @@ def parse_arguments() -> argparse.Namespace:
 
     # optimization parameters
     parser.add_argument('--device', type=str, default='cuda', help='device')
-    parser.add_argument('--iterations', type=int, default=20, help='Number of iterations for optimization')
-    parser.add_argument('--learning_rate', type=float, default=1e-3, help='Learning rate for the optimizer')
+    parser.add_argument('--iterations', type=int, default=1000, help='Number of iterations for optimization')
+    parser.add_argument('--learning_rate', type=float, default=1e-1, help='Learning rate for the optimizer')
     return parser.parse_args()
 
 def main() -> None:
@@ -64,45 +63,75 @@ def main() -> None:
     phase_profile = torch.randn((target.shape[-2], target.shape[-1]), requires_grad=True, device=args.device)
     phase_profile_mask = phase_profile_mask_factory(phase_profile, 
                                                     args.phase_profile_mask).to(args.device)
-    phase_profile_masked = phase_profile * phase_profile_mask
+    
     
     # 定义优化器
-    optimizer = optim.SGD([phase_profile], lr=args.learning_rate)
+    optimizer = optim.Adam([phase_profile], lr=args.learning_rate)
 
     # 添加进度条，在进度条上显示loss
-    for i in tqdm(range(args.iterations), desc="优化进度"):
+    pbar = tqdm(range(args.iterations), desc="优化进度")
+    for i in pbar:
+        
         optimizer.zero_grad()
         total_loss = 0
+
+        phase_profile_masked = phase_profile * phase_profile_mask
         
         # 对所有传播距离计算损失
         for propagation_distance, target_image in target_images.items():
+            enhanced_target = target_image * 10
             args.propagation_distance = propagation_distance
             intensity = propagation_function(phase_profile_masked, args)
-            loss = F.mse_loss(intensity.unsqueeze(0), target_image)
+            loss = F.mse_loss(intensity.unsqueeze(0), enhanced_target)
             total_loss += loss
         
         # 只进行一次反向传播
-        total_loss.backward()
+        total_loss.backward(retain_graph=True if i < args.iterations - 1 else False)
         optimizer.step()
-        tqdm.write(f"总损失: {total_loss.item()}")
+        
+        # 更新进度条显示当前loss
+        pbar.set_postfix({"loss": f"{total_loss.item():.4f}"})
 
         # 如果是最后一次迭代，以图片形式保存phase profile，将其范围限制在0到2pi，和在左右深度的重建结果
         if i == args.iterations - 1:
-            phase_profile = phase_profile % (2 * torch.pi) / (2 * torch.pi)
-            phase_profile = phase_profile.detach().cpu().numpy()
-            phase_profile = Image.fromarray(phase_profile)
-            phase_profile.save(os.path.join(args.target_dir, "result/phase_profile.png"))
+            # 确保结果目录存在
+            result_dir = os.path.join(args.target_dir, "result")
+            os.makedirs(result_dir, exist_ok=True)
+            
+            # 处理相位分布
+            phase_profile_final = phase_profile_masked.detach().clone()
+            phase_profile_final = phase_profile_final % (2 * torch.pi) / (2 * torch.pi)
+            phase_profile_final = phase_profile_final.cpu().numpy()
+            
+            # 将相位分布转换为0-255的灰度图像
+            phase_image = (phase_profile_final * 255).astype('uint8')
+            phase_image = Image.fromarray(phase_image)
+            phase_image.save(os.path.join(result_dir, "phase_profile.png"))
 
-            for propagation_distance, target_image in target_images.items():
+            # 保存每个传播距离的强度图像
+            min_distance = 2000e-6
+            max_distance = 5000e-6
+            for propagation_distance in torch.arange(min_distance, max_distance, 5e-6):
                 args.propagation_distance = propagation_distance
-                intensity = propagation_function(phase_profile, args)
+                intensity = propagation_function(phase_profile_masked, args)
                 intensity = intensity.detach().cpu().numpy()
-                intensity = Image.fromarray(intensity)
-                intensity.save(os.path.join(args.target_dir, "result/intensity_" + format_distance(propagation_distance) + ".png"))
+                
+                # 将强度图像归一化到0-255
+                intensity_normalized = (intensity / intensity.max() * 255).astype('uint8')
+                intensity_image = Image.fromarray(intensity_normalized)
+                intensity_image.save(os.path.join(result_dir, f"intensity_{propagation_distance*1e6:.0f}um" + ".png"))
 
-            # 保存 args
-            with open(os.path.join(args.target_dir, "result/args.json"), "w") as f:
-                json.dump(args, f)      
+            # 保存 args (需要将args转换为可序列化的字典)
+            args_dict = vars(args)
+            # 将不可序列化的对象转换为字符串
+            for key, value in args_dict.items():
+                if isinstance(value, torch.Tensor):
+                    args_dict[key] = value.detach().cpu().tolist()
+                elif not isinstance(value, (str, int, float, bool, list, dict, type(None))):
+                    args_dict[key] = str(value)
+                    
+            with open(os.path.join(result_dir, "args.json"), "w") as f:
+                json.dump(args_dict, f, indent=4)
 
     
 if __name__ == "__main__":

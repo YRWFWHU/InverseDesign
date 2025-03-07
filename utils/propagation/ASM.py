@@ -6,7 +6,8 @@ from odak.learn.wave import propagate_beam
 
 def ASM(phase_profile: torch.Tensor, args: argparse.Namespace) -> torch.Tensor:
     wavelength = args.wavelength[0]
-    result = propagate_beam(phase_profile, wavenumber(wavelength), args.propagation_distance, args.dx, wavelength, propagation_type='Angular Spectrum')
+    complex_field = generate_complex_field(torch.ones_like(phase_profile), phase_profile)
+    result = propagate_beam(complex_field, wavenumber(wavelength), args.propagation_distance, args.dx, wavelength, propagation_type='Angular Spectrum')
     return result
 
 def generate_complex_field(amplitude: torch.Tensor, phase: torch.Tensor) -> torch.Tensor:

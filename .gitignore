@@ -1,0 +1,45 @@
+# 忽略所有 Python 缓存目录
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 忽略 odak 日志文件
+odak.log
+
+# 其他常见的 Python 项目忽略项
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 虚拟环境
+venv/
+ENV/
+env/
+
+# IDE 相关文件
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 操作系统生成的文件
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db 
