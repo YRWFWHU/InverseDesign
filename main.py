@@ -36,17 +36,17 @@ def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Inverse design")
 
     # task parameters
-    parser.add_argument('--target_dir', type=str, default='multifocal_1000by1000_2500to4500_step100', help='target image')
+    parser.add_argument('--target_dir', type=str, default='multifocal_1024by1024_190000to210000_step20', help='target image')
     parser.add_argument('--propagation_funtion', type=str, default='default', help='propagation function')
-    parser.add_argument('--phase_profile_mask', type=str, default='circle', help='phase profile mask')
+    parser.add_argument('--phase_profile_mask', type=str, default='rect', choices=['circle', 'rect'])
 
     # meta parameters
-    parser.add_argument('--dx', type=float, default=300e-9, help='meta period')
-    parser.add_argument('--wavelength', type=list, default=[532e-9], help='wavelength list')
+    parser.add_argument('--dx', type=float, default=6.4e-6, help='meta period')
+    parser.add_argument('--wavelength', type=float, default=520e-9, help='wavelength')
 
     # optimization parameters
-    parser.add_argument('--device', type=str, default='cuda', help='device')
-    parser.add_argument('--iterations', type=int, default=1000, help='Number of iterations for optimization')
+    parser.add_argument('--device', type=str, default='cuda:1', help='device')
+    parser.add_argument('--iterations', type=int, default=300, help='Number of iterations for optimization')
     parser.add_argument('--learning_rate', type=float, default=1e-1, help='Learning rate for the optimizer')
     return parser.parse_args()
 
@@ -109,15 +109,26 @@ def main() -> None:
             phase_image.save(os.path.join(result_dir, "phase_profile.png"))
 
             # 保存每个传播距离的强度图像
-            min_distance = 2000e-6
-            max_distance = 5000e-6
-            for propagation_distance in torch.arange(min_distance, max_distance, 5e-6):
+            min_distance = 180000e-6
+            max_distance = 220000e-6
+
+            # 首先收集所有深度的强度图像
+            all_intensities = []
+            propagation_distances = []
+            
+            for propagation_distance in torch.arange(min_distance, max_distance, 100e-6):
                 args.propagation_distance = propagation_distance
                 intensity = propagation_function(phase_profile_masked, args)
                 intensity = intensity.detach().cpu().numpy()
-                
-                # 将强度图像归一化到0-255
-                intensity_normalized = (intensity / intensity.max() * 255).astype('uint8')
+                all_intensities.append(intensity)
+                propagation_distances.append(propagation_distance)
+            
+            # 找到所有强度图像中的全局最大值，用于统一归一化
+            global_max = max([intensity.max() for intensity in all_intensities])
+            
+            # 使用全局最大值对所有图像进行相同的归一化
+            for i, (intensity, propagation_distance) in enumerate(zip(all_intensities, propagation_distances)):
+                intensity_normalized = (intensity / global_max * 255).astype('uint8')
                 intensity_image = Image.fromarray(intensity_normalized)
                 intensity_image.save(os.path.join(result_dir, f"intensity_{propagation_distance*1e6:.0f}um" + ".png"))
 

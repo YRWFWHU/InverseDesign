@@ -1,0 +1,13 @@
+{
+    "target_dir": "multifocal_500by500_2500to3500_step100",
+    "propagation_funtion": "default",
+    "phase_profile_mask": "circle",
+    "dx": 3e-07,
+    "wavelength": [
+        5.32e-07
+    ],
+    "device": "cuda",
+    "iterations": 1000,
+    "learning_rate": 0.1,
+    "propagation_distance": 0.0039900001138448715
+}

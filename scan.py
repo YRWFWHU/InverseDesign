@@ -8,12 +8,12 @@ from tqdm import tqdm
 
 def parse_args():
     parser = argparse.ArgumentParser(description="扫描重建结果")
-    parser.add_argument('--phase_profile', type=str, default='multifocal_1000by1000_2500to4500_step100/result/phase_profile.png', help='相位分布图像路径')
+    parser.add_argument('--phase_profile', type=str, default='multifocal_1000by1000_5000to7000_step20/result/phase_profile.png', help='相位分布图像路径')
     parser.add_argument('--start_distance', type=float, default=000e-6, help='起始距离(m)')
     parser.add_argument('--end_distance', type=float, default=10000e-6, help='结束距离(m)') 
-    parser.add_argument('--step', type=float, default=100e-6, help='步长(m)')
-    parser.add_argument('--dx', type=float, default=300e-9, help='采样间隔')
-    parser.add_argument('--wavelength', type=list, default=[532e-9], help='波长')
+    parser.add_argument('--step', type=float, default=100e-3, help='步长(m)')
+    parser.add_argument('--dx', type=float, default=6.4e-6, help='采样间隔')
+    parser.add_argument('--wavelength', type=list, default=[520e-9], help='波长')
     parser.add_argument('--device', type=str, default='cuda', help='设备')
     parser.add_argument('--save_dir', type=str, default='scan_result', help='保存目录')
     return parser.parse_args()

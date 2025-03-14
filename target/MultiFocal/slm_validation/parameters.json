@@ -1,0 +1,1 @@
+{"image_size": 1024, "start_depth": 0.18, "end_depth": 0.22, "step": 0.00039999999999999996, "unit": "um", "focus_start_depth": 0.19, "focus_end_depth": 0.21, "focus_radius": 3, "output_dir": "slm_validation"}
